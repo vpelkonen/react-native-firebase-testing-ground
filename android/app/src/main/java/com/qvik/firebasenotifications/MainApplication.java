@@ -1,4 +1,4 @@
-package com.invertase.rnfirebasestarter;
+package com.qvik.firebasenotifications;
 
 import android.app.Application;
 

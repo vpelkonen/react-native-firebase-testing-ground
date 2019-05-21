@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, Platform, Image, Text, View, ScrollView } from 'react-native';
 
 import firebase from 'react-native-firebase';
+import { setNotifications } from './notifications';
 
 export default class App extends React.Component {
   constructor() {
@@ -15,13 +16,19 @@ export default class App extends React.Component {
     // console.warn('User -> ', user.toJSON());
 
     // await firebase.analytics().logEvent('foo', { bar: '123'});
+    setNotifications()
+    this.notificationOpenedListener = firebase
+      .notifications()
+      .onNotificationOpened(({ notification }) => {
+        console.log(notification)
+      })
   }
 
   render() {
     return (
       <ScrollView>
         <View style={styles.container}>
-          <Image source={require('./assets/ReactNativeFirebase.png')} style={[styles.logo]}/>
+          <Image source={require('./assets/ReactNativeFirebase.png')} style={[styles.logo]} />
           <Text style={styles.welcome}>
             Welcome to {'\n'} React Native Firebase
           </Text>
@@ -34,11 +41,11 @@ export default class App extends React.Component {
               Cmd+D or shake for dev menu
             </Text>
           ) : (
-            <Text style={styles.instructions}>
-              Double tap R on your keyboard to reload,{'\n'}
-              Cmd+M or shake for dev menu
+              <Text style={styles.instructions}>
+                Double tap R on your keyboard to reload,{'\n'}
+                Cmd+M or shake for dev menu
             </Text>
-          )}
+            )}
           <View style={styles.modules}>
             <Text style={styles.modulesHeader}>The following Firebase modules are pre-installed:</Text>
             {firebase.admob.nativeModuleExists && <Text style={styles.module}>admob()</Text>}
