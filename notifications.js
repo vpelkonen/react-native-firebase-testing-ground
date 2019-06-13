@@ -1,6 +1,5 @@
 import { Platform } from 'react-native'
 import firebase from 'react-native-firebase'
-import firebase from 'react-native-firebase'
 
 const publicChannel = {
   id: 'public',
@@ -45,4 +44,4 @@ const setNotifications = () => {
   }
 }
 
-export { setNotifications }
+export { channels, setNotifications }

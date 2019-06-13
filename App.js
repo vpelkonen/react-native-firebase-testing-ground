@@ -1,30 +1,83 @@
-import React from 'react';
-import { StyleSheet, Platform, Image, Text, View, ScrollView } from 'react-native';
+import React from 'react'
+import firebase from 'react-native-firebase'
+import { AsyncStorage, StyleSheet, Platform, Image, Linking, Text, TouchableOpacity, View, ScrollView } from 'react-native'
 
-import firebase from 'react-native-firebase';
-import { setNotifications } from './notifications';
+import { channels, setNotifications } from './notifications'
 
-export default class App extends React.Component {
+class App extends React.Component {
   constructor() {
-    super();
-    this.state = {};
+    super()
+    this.state = {
+      messages: [],
+      subscriptions: []
+    }
   }
 
-  async componentDidMount() {
-    // TODO: You: Do firebase things
-    // const { user } = await firebase.auth().signInAnonymously();
-    // console.warn('User -> ', user.toJSON());
+  componentDidMount() {
+    this.setupDeepLinking()
+    this.setupNotifications()
+  }
 
-    // await firebase.analytics().logEvent('foo', { bar: '123'});
+  componentWillUnmount() {
+    Linking.removeEventListener('url', this.handleDeepLinkEvent)
+  }
+
+  setupNotifications = async () => {
+    const { messages } = this.state
     setNotifications()
     this.notificationOpenedListener = firebase
       .notifications()
       .onNotificationOpened(({ notification }) => {
-        console.log(notification)
+        console.log('notification opened', notification)
+        console.log(notification.data, notification.notificationId)
+        this.setState({ messages: [...messages, notification] })
+        this.parseDeepLink(notification.data.url)
+      })
+    this.handleInitialNotification()
+  }
+
+  handleInitialNotification = async () => {
+    const event = await firebase.notifications().getInitialNotification()
+    if (event && event.notification && event.notification.data) {
+      console.log('got initial notification', event.notification)
+    }
+  }
+
+  toggleSubscription = (id) => {
+    const { subscriptions } = this.state
+    if (subscriptions.includes(id)) {
+      firebase
+        .messaging()
+        .unsubscribeFromTopic(id)
+      this.setState({ subscriptions: subscriptions.filter((s) => s !== id) })
+    } else {
+      firebase
+        .messaging()
+        .subscribeToTopic(id)
+      this.setState({ subscriptions: [...subscriptions, id] })
+    }
+  }
+
+  setupDeepLinking = () => {
+    Linking.addEventListener('url', this.handleDeepLinkEvent)
+    Linking
+      .getInitialURL()
+      .then((url) => {
+        this.parseDeepLink(url)
       })
   }
 
+  handleDeepLinkEvent = (event) => {
+    this.parseDeepLink(event.url)
+  }
+
+  parseDeepLink = (url) => {
+    console.log(url || 'no deep link')
+  }
+
   render() {
+    const { messages, subscriptions } = this.state
+    console.log('msg', messages)
     return (
       <ScrollView>
         <View style={styles.container}>
@@ -33,49 +86,38 @@ export default class App extends React.Component {
             Welcome to {'\n'} React Native Firebase
           </Text>
           <Text style={styles.instructions}>
-            To get started, edit App.js
+            To test push notifications, send them using the Firebase console. When you open a notification, its message should be visible here.
           </Text>
-          {Platform.OS === 'ios' ? (
-            <Text style={styles.instructions}>
-              Press Cmd+R to reload,{'\n'}
-              Cmd+D or shake for dev menu
-            </Text>
-          ) : (
-              <Text style={styles.instructions}>
-                Double tap R on your keyboard to reload,{'\n'}
-                Cmd+M or shake for dev menu
-            </Text>
-            )}
-          <View style={styles.modules}>
-            <Text style={styles.modulesHeader}>The following Firebase modules are pre-installed:</Text>
-            {firebase.admob.nativeModuleExists && <Text style={styles.module}>admob()</Text>}
-            {firebase.analytics.nativeModuleExists && <Text style={styles.module}>analytics()</Text>}
-            {firebase.auth.nativeModuleExists && <Text style={styles.module}>auth()</Text>}
-            {firebase.config.nativeModuleExists && <Text style={styles.module}>config()</Text>}
-            {firebase.crashlytics.nativeModuleExists && <Text style={styles.module}>crashlytics()</Text>}
-            {firebase.database.nativeModuleExists && <Text style={styles.module}>database()</Text>}
-            {firebase.firestore.nativeModuleExists && <Text style={styles.module}>firestore()</Text>}
-            {firebase.functions.nativeModuleExists && <Text style={styles.module}>functions()</Text>}
-            {firebase.iid.nativeModuleExists && <Text style={styles.module}>iid()</Text>}
-            {firebase.invites.nativeModuleExists && <Text style={styles.module}>invites()</Text>}
-            {firebase.links.nativeModuleExists && <Text style={styles.module}>links()</Text>}
-            {firebase.messaging.nativeModuleExists && <Text style={styles.module}>messaging()</Text>}
-            {firebase.notifications.nativeModuleExists && <Text style={styles.module}>notifications()</Text>}
-            {firebase.perf.nativeModuleExists && <Text style={styles.module}>perf()</Text>}
-            {firebase.storage.nativeModuleExists && <Text style={styles.module}>storage()</Text>}
-          </View>
+          {channels.map((channel) => (
+            <TouchableOpacity style={styles.button} key={channel.id} onPress={() => { this.toggleSubscription(channel.id) }}>
+              <Text>{subscriptions.includes(channel.id) ? 'Unsubscribe from' : 'Subscribe to'} {channel.id}</Text>
+            </TouchableOpacity>
+          ))}
+          {firebase.notifications.nativeModuleExists
+            ? <Text style={styles.module}>Notifications enabled.</Text>
+            : <Text style={styles.module}>Notifications NOT enabled.</Text>
+          }
+          {messages.map((m) => <Text key={m.notificationId}>{m.notificationId}</Text>)}
         </View>
       </ScrollView>
-    );
+    )
   }
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    padding: 20,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#F5FCFF',
+  },
+  button: {
+    backgroundColor: '#fff',
+    padding: 12,
+    borderWidth: 2,
+    borderColor: '#454545',
+    margin: 4
   },
   logo: {
     height: 120,
@@ -94,16 +136,11 @@ const styles = StyleSheet.create({
     color: '#333333',
     marginBottom: 5,
   },
-  modules: {
-    margin: 20,
-  },
-  modulesHeader: {
-    fontSize: 16,
-    marginBottom: 8,
-  },
   module: {
     fontSize: 14,
     marginTop: 4,
     textAlign: 'center',
   }
-});
+})
+
+export default App
